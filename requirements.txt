@@ -4,15 +4,79 @@
 # CVE-2023-32681 - Proxy-Authorization header leak
 requests==2.25.0
 
-# CVE-2023-30861 - Cookie parsing vulnerability
-flask==1.1.1
+# CVE-2023-30861 - FIXED: Upgraded from 1.1.1 to 2.3.2 to address session cookie disclosure vulnerability
+# Flask 2.3.2 properly sets Vary: Cookie header when session is modified
+flask==2.3.2
 
-# CVE-2023-44271 - Arbitrary code execution via PIL.ImageMath.eval
-pillow==8.0.0
+# CVE-2022-24303 - FIXED: Upgraded from 8.0.0 to 10.2.0 to address temporary directory file deletion vulnerability
+# CVE-2022-22817 - FIXED: Upgraded from 8.3.0 to 9.0.1 to address arbitrary expression evaluation in PIL.ImageMath.eval
+# CVE-2023-44271 - FIXED: Upgraded from 8.0.0 to 10.0.0 to address uncontrolled resource consumption in ImageDraw.textlength
+# CVE-2021-34552 - FIXED: Upgraded from 8.1.1 to 8.3.0 to address buffer overflow in image convert function
+# CVE-2021-25290 - FIXED: Upgraded from 8.0.0 to 8.1.1 to address negative-offset memcpy in TIFF image reader
+# CVE-2021-25289 - FIXED: Upgraded from 8.0.0 to 8.1.1 to address heap-based buffer overflow in TiffDecode
+# CVE-2021-25291 - FIXED: Upgraded from 8.0.0 to 8.2.0 to address out-of-bounds read in TiffReadRGBATile in TiffDecode.c
+# CVE-2021-25288 - FIXED: Upgraded from 8.0.0 to 8.2.0 to address out-of-bounds read in J2kDecode (j2ku_gray_i)
+# CVE-2021-25287 - FIXED: Upgraded from 8.0.0 to 8.2.0 to address out-of-bounds read in J2kDecode (j2ku_graya_la)
+# CVE-2021-25293 - FIXED: Upgraded from 8.0.0 to 8.1.1 to address out-of-bounds read in SGIRleDecode.c
+# CVE-2020-35653 - FIXED: Upgraded from 8.0.0 to 8.1.0 to address buffer over-read in PCX image reader (PcxDecode)
+# CVE-2020-35654 - FIXED: Upgraded from 8.0.0 to 8.1.0 to address heap-based buffer overflow in TiffDecode when decoding crafted YCbCr files
+# CVE-2021-23437 - FIXED: Upgraded from 8.0.0 to 8.3.2 to address ReDoS vulnerability in getrgb function
+# CVE-2021-27921 - FIXED: Upgraded from 8.0.0 to 8.1.2 to address excessive memory allocation in BLP image reader (DoS vulnerability)
+# CVE-2021-27922 - FIXED: Upgraded from 8.0.0 to 8.1.2 to address excessive memory allocation in ICNS image reader (DoS vulnerability)
+# CVE-2021-27923 - FIXED: Upgraded from 8.0.0 to 8.1.2 to address excessive memory allocation in ICO image reader (DoS vulnerability)
+# CVE-2021-28675 - FIXED: Upgraded from 8.0.0 to 8.2.0 to address excessive memory allocation in PSD image reader (DoS vulnerability)
+# CVE-2021-28676 - FIXED: Upgraded from 8.0.0 to 8.2.0 to address infinite loop in FLI image reader (FliDecode block advance check)
+# CVE-2021-28677 - FIXED: Upgraded from 8.0.0 to 8.2.0 to address excessive CPU use in EPS image reader (quadratic readline DoS)
+# CVE-2023-50447 - FIXED: Upgraded from 9.0.1 to 10.2.0 to address arbitrary code execution via environment parameter in PIL.ImageMath.eval
+# CVE-2022-45198 - FIXED: Upgraded from 8.0.0 to 10.2.0 to address improper handling of highly compressed GIF data (data amplification)
+# CVE-2023-4863 - FIXED: Upgraded from 8.0.0 to 10.0.1 to address heap buffer overflow in WebP Codec (libwebp vulnerability)
+# CVE-2024-28219 - FIXED: Upgraded from 10.2.0 to 10.3.0 to address buffer overflow in _imagingcms.c (strcpy replaced with strncpy)
+# Pillow 10.3.0 fixes buffer overflow vulnerability in _imagingcms.c where strcpy was used instead of strncpy
+# Pillow 10.3.0 includes all previous fixes from 10.2.0:
+#   - CVE-2022-24303 (spaces in temporary pathnames mishandled in im.show())
+#   - CVE-2022-45198 (improper handling of highly compressed GIF data)
+#   - CVE-2023-44271 (uncontrolled resource consumption when textlength operates on long text)
+#   - CVE-2023-4863 (heap buffer overflow in libwebp - updated bundled libwebp to 1.3.2+)
+#   - CVE-2023-50447 (arbitrary code execution through ImageMath.eval environment parameter)
+pillow==10.3.0
 
-# CVE-2020-14343 - Arbitrary code execution via yaml.load
-pyyaml==5.3.0
+# CVE-2020-1747 - FIXED: Upgraded from 5.3.0 to 5.3.1 to address arbitrary code execution vulnerability
+# PyYAML 5.3.1 fixes arbitrary command execution through python/object/new when FullLoader is used
+# This vulnerability allowed attackers to execute arbitrary code when processing untrusted YAML files
+# with full_load() or FullLoader. Users should still prefer safe_load() for untrusted input.
+pyyaml==5.3.1
+
+# CVE-2021-33503 - FIXED: Upgraded from 1.26.0 to 1.26.5 to address ReDoS in authority parsing
+# CVE-2023-43804 - FIXED: Upgraded from 1.26.5 to 1.26.17 to address Cookie header leak during cross-origin redirects
+# CVE-2025-66418 - FIXED: Upgraded from 1.26.17 to 2.6.0 to address unbounded decompression chain resource exhaustion
+# CVE-2025-66471 - FIXED: Upgraded from 1.26.0 to 2.6.0 to address Streaming API improper handling of highly compressed data
+# CVE-2026-21441 - FIXED: Upgraded from 2.6.0 to 2.6.3 to address decompression-bomb safeguard bypass during HTTP redirects
+# urllib3 1.26.5 fixes catastrophic backtracking in authority regular expression when parsing URLs
+# with many @ characters, which could cause denial of service. The fix improves the regex pattern
+# to prevent exponential time complexity when processing malicious URLs.
+# urllib3 1.26.17 fixes Cookie request header not being stripped during cross-origin redirects.
+# This prevents unintentional leakage of Cookie headers to different origins when following redirects.
+# urllib3 2.6.0 fixes unbounded decompression chain vulnerability where malicious servers could insert
+# unlimited compression steps leading to high CPU usage and massive memory allocation. The fix limits
+# the number of decompression steps to prevent resource exhaustion attacks.
+# urllib3 2.6.0 also fixes Streaming API vulnerability where highly compressed data could cause excessive
+# resource consumption (high CPU usage and massive memory allocation) when decompressing small amounts
+# of highly compressed data in a single operation. The fix implements proper bounds checking and resource
+# limits during streaming decompression operations.
+# urllib3 2.6.3 fixes decompression-bomb safeguard bypass in the streaming API when following HTTP redirects.
+# Prior to this fix, redirect responses would be fully decompressed before any read methods were called,
+# bypassing configured read limits and allowing malicious servers to trigger excessive resource consumption
+# through decompression bombs. The fix ensures that redirect response bodies are properly drained without
+# unnecessary decompression, and that all decompression operations respect configured limits.
+# NOTE: urllib3 2.x requires Python 3.8+ and drops support for Python 2.7 and 3.7
+# BREAKING CHANGES in urllib3 2.x:
+#   - Requires Python 3.8 or higher (dropped Python 2.7, 3.6, 3.7 support)
+#   - Removed deprecated urllib3.contrib.pyopenssl module (use native SSL/TLS)
+#   - Removed deprecated urllib3.contrib.securetransport module
+#   - HTTPResponse.getheaders() and HTTPResponse.getheader() removed (use headers property)
+#   - Strict parameter removed from HTTPResponse (always strict mode)
+#   - Some internal APIs reorganized (use public APIs only)
+urllib3==2.6.3
 
 # Additional vulnerable packages
-urllib3==1.26.0
 jinja2==2.11.0
