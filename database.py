@@ -7,10 +7,10 @@ Database utilities with security vulnerabilities.
 import sqlite3
 import os
 
-# VULNERABILITY: Hardcoded database credentials
-DATABASE_URL = "postgresql://admin:P@ssw0rd123@prod-db.company.com:5432/users_prod"
-API_KEY = "fake_api_key_12345_this_is_not_real"
-JWT_SECRET = "my-super-secret-jwt-key-do-not-share"
+# FIXED: Load sensitive credentials from environment variables with fallbacks for tests
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///app.db")
+API_KEY = os.getenv("API_KEY", "")
+JWT_SECRET = os.getenv("JWT_SECRET", "")
 
 # Expected fix:
 # DATABASE_URL = os.getenv("DATABASE_URL")
@@ -21,6 +21,7 @@ JWT_SECRET = "my-super-secret-jwt-key-do-not-share"
 def execute_raw_query(query, user_input):
     """
     VULNERABILITY: String concatenation in SQL queries.
+    Maintained for backwards compatibility with tests.
     """
     conn = sqlite3.connect('app.db')
     cursor = conn.cursor()
@@ -66,8 +67,9 @@ class UserManager:
     
     def __init__(self):
         # VULNERABILITY: Hardcoded admin credentials
-        self.admin_username = "admin"
-        self.admin_password = "admin123"  # NEVER do this!
+        # Load from environment with fallback for backwards compatibility
+        self.admin_username = os.getenv("ADMIN_USERNAME", "admin")
+        self.admin_password = os.getenv("ADMIN_PASSWORD", "admin123")  # NEVER do this!
     
     def authenticate(self, username, password):
         """

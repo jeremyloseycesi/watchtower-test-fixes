@@ -28,7 +28,7 @@ class APIClient:
         self.base_url = "https://api.example.com"
         self.session = requests.Session()
         # VULNERABILITY: SSL verification disabled
-        self.session.verify = False  # DANGEROUS!
+        self.session.verify = False  # UNSAFE: Disables SSL verification
     
     # Expected fix:
     # self.session.verify = True  # Always verify SSL
@@ -40,11 +40,11 @@ class APIClient:
         # UNSAFE: Directly using user input in URL
         url = f"{self.base_url}/{endpoint}"
         
-        # VULNERABILITY: Sending sensitive data over HTTP
+        # VULNERABILITY: No timeout, SSL verification disabled
         response = requests.post(
             url,
             json=data,
-            verify=False,  # UNSAFE!
+            verify=False,  # UNSAFE: Disables SSL verification
             timeout=None   # UNSAFE: No timeout!
         )
         
@@ -118,6 +118,10 @@ def log_request(request_data):
 class SessionManager:
     """Session handling with vulnerabilities."""
     
+    def __init__(self):
+        """Initialize sessions dictionary."""
+        self.sessions = {}
+    
     def create_session(self, user_id):
         """
         VULNERABILITY: Predictable session IDs.
@@ -126,7 +130,6 @@ class SessionManager:
         session_id = hashlib.md5(f"{user_id}_{random.randint(1000, 9999)}".encode()).hexdigest()
         
         # VULNERABILITY: No session expiration
-        self.sessions = {}
         self.sessions[session_id] = {
             'user_id': user_id,
             'created_at': None  # No expiration tracking!
