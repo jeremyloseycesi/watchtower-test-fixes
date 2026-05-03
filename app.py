@@ -11,40 +11,38 @@ This app demonstrates vulnerabilities that require CODE CHANGES, not just versio
 import os
 import sqlite3
 import subprocess
-import pickle
+import json
+from pathlib import Path
 from flask import Flask, request, render_template_string
+from markupsafe import escape
+from werkzeug.security import generate_password_hash
+from functools import wraps
 
 app = Flask(__name__)
 
 # ============================================================================
-# VULNERABILITY 1: Hardcoded AWS Credentials (CRITICAL)
+# VULNERABILITY 1: Hardcoded AWS Credentials (CRITICAL) - FIXED
 # ============================================================================
-# These should be environment variables!
-AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
-AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-AWS_REGION = "us-east-1"
-
-# Expected fix:
-# AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
-# AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
-# AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+# FIXED: Load from environment variables
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 
 # ============================================================================
-# VULNERABILITY 2: SQL Injection (CRITICAL)
+# VULNERABILITY 2: SQL Injection (CRITICAL) - FIXED
 # ============================================================================
 @app.route('/user/<user_id>')
 def get_user(user_id):
     """
-    VULNERABLE: Direct string concatenation in SQL query.
-    An attacker can inject: 1 OR 1=1; DROP TABLE users;--
+    FIXED: Using parameterized query to prevent SQL injection.
     """
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
     
-    # UNSAFE: User input directly in query string
-    query = f"SELECT * FROM users WHERE id = {user_id}"
-    cursor.execute(query)
+    # FIXED: Parameterized query
+    query = "SELECT * FROM users WHERE id = ?"
+    cursor.execute(query, (user_id,))
     
     result = cursor.fetchone()
     conn.close()
@@ -53,215 +51,179 @@ def get_user(user_id):
         return {"user": {"id": result[0], "name": result[1], "email": result[2]}}
     return {"error": "User not found"}
 
-# Expected fix:
-# query = "SELECT * FROM users WHERE id = ?"
-# cursor.execute(query, (user_id,))
-
 
 # ============================================================================
-# VULNERABILITY 3: Command Injection (CRITICAL)
+# VULNERABILITY 3: Command Injection (CRITICAL) - FIXED
 # ============================================================================
 @app.route('/ping')
 def ping_host():
     """
-    VULNERABLE: User input passed to shell command.
-    An attacker can inject: 8.8.8.8; rm -rf /
+    FIXED: Using array syntax without shell=True to prevent command injection.
     """
     host = request.args.get('host', 'localhost')
     
-    # UNSAFE: Using shell=True with user input
+    # FIXED: Using array syntax with shell=False
     result = subprocess.run(
-        f"ping -c 1 {host}",
-        shell=True,
+        ["ping", "-c", "1", host],
+        shell=False,
         capture_output=True,
         text=True
     )
     
     return {"output": result.stdout}
 
-# Expected fix:
-# result = subprocess.run(
-#     ["ping", "-c", "1", host],
-#     shell=False,
-#     capture_output=True,
-#     text=True
-# )
-
 
 # ============================================================================
-# VULNERABILITY 4: Server-Side Template Injection (CRITICAL)
+# VULNERABILITY 4: Server-Side Template Injection (CRITICAL) - FIXED
 # ============================================================================
 @app.route('/greet')
 def greet():
     """
-    VULNERABLE: User input directly in template.
-    An attacker can inject: {{config.__class__.__init__.__globals__['os'].popen('ls').read()}}
+    FIXED: Escaping user input to prevent SSTI.
     """
-    name = request.args.get('name', 'World')
+    name = escape(request.args.get('name', 'World'))
     
-    # UNSAFE: Rendering user input as template
-    template = f"<h1>Hello {name}!</h1>"
-    return render_template_string(template)
-
-# Expected fix:
-# from markupsafe import escape
-# name = escape(request.args.get('name', 'World'))
-# return f"<h1>Hello {name}!</h1>"
+    # FIXED: Using escaped input, not rendering as template
+    return f"<h1>Hello {name}!</h1>"
 
 
 # ============================================================================
-# VULNERABILITY 5: Insecure Deserialization (CRITICAL)
+# VULNERABILITY 5: Insecure Deserialization (CRITICAL) - FIXED
 # ============================================================================
 @app.route('/load-data', methods=['POST'])
 def load_data():
     """
-    VULNERABLE: Unpickling untrusted data.
-    An attacker can execute arbitrary code via malicious pickle payload.
+    FIXED: Using JSON instead of pickle for untrusted data.
     """
     data = request.get_data()
     
-    # UNSAFE: pickle.loads on untrusted data
+    # FIXED: Using JSON instead of pickle
     try:
-        obj = pickle.loads(data)
+        obj = json.loads(data.decode())
         return {"data": str(obj)}
     except Exception as e:
         return {"error": str(e)}
 
-# Expected fix:
-# Use JSON instead of pickle for untrusted data:
-# import json
-# obj = json.loads(request.get_data().decode())
-
 
 # ============================================================================
-# VULNERABILITY 6: Path Traversal (HIGH)
+# VULNERABILITY 6: Path Traversal (HIGH) - FIXED
 # ============================================================================
 @app.route('/read-log')
 def read_log():
     """
-    VULNERABLE: No path validation.
-    An attacker can read: ../../../../etc/passwd
+    FIXED: Validating file path to prevent path traversal.
     """
     filename = request.args.get('file', 'app.log')
     
-    # UNSAFE: No validation of file path
+    # FIXED: Path validation to prevent directory traversal
     try:
-        with open(f"logs/{filename}", 'r') as f:
+        logs_dir = Path("logs").resolve()
+        file_path = (logs_dir / filename).resolve()
+        
+        # Ensure the resolved path is within logs directory
+        if not str(file_path).startswith(str(logs_dir)):
+            return {"error": "Invalid file path"}, 403
+            
+        with open(file_path, 'r') as f:
             content = f.read()
         return {"content": content}
     except Exception as e:
         return {"error": str(e)}
 
-# Expected fix:
-# import os
-# from pathlib import Path
-# logs_dir = Path("logs").resolve()
-# file_path = (logs_dir / filename).resolve()
-# if not file_path.is_relative_to(logs_dir):
-#     return {"error": "Invalid file path"}, 403
-
 
 # ============================================================================
-# VULNERABILITY 7: Hardcoded Database Password (CRITICAL)
+# VULNERABILITY 7: Hardcoded Database Password (CRITICAL) - FIXED
 # ============================================================================
 def get_database_connection():
     """
-    VULNERABLE: Database credentials hardcoded.
+    FIXED: Using environment variables for database credentials.
     """
-    # UNSAFE: Hardcoded credentials
-    return sqlite3.connect('users.db')
-    # In a real app, this would be:
+    # FIXED: Load credentials from environment
+    db_path = os.getenv("DB_PATH", "users.db")
+    return sqlite3.connect(db_path)
+    # In a real app with PostgreSQL, this would be:
+    # DB_HOST = os.getenv("DB_HOST")
+    # DB_NAME = os.getenv("DB_NAME")
+    # DB_USER = os.getenv("DB_USER")
+    # DB_PASSWORD = os.getenv("DB_PASSWORD")
     # conn = psycopg2.connect(
-    #     host="prod-db.company.com",
-    #     database="users",
-    #     user="admin",
-    #     password="SuperSecret123!"  # HARDCODED!
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
     # )
 
-# Expected fix:
-# DB_HOST = os.getenv("DB_HOST")
-# DB_NAME = os.getenv("DB_NAME")
-# DB_USER = os.getenv("DB_USER")
-# DB_PASSWORD = os.getenv("DB_PASSWORD")
-
 
 # ============================================================================
-# VULNERABILITY 8: Missing Authentication (HIGH)
+# VULNERABILITY 8: Missing Authentication (HIGH) - FIXED
 # ============================================================================
+def require_admin(f):
+    """
+    Authentication decorator for admin endpoints.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_token = request.headers.get('Authorization')
+        
+        # Simple token check - in production, use proper JWT/session validation
+        admin_token = os.getenv('ADMIN_TOKEN')
+        if not auth_token or auth_token != f"Bearer {admin_token}":
+            return {"error": "Unauthorized"}, 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 @app.route('/admin/delete-user/<user_id>', methods=['POST'])
+@require_admin
 def delete_user(user_id):
     """
-    VULNERABLE: No authentication check!
-    Anyone can delete any user.
+    FIXED: Added authentication check and parameterized query.
     """
-    # UNSAFE: No auth check
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
-    cursor.execute(f"DELETE FROM users WHERE id = {user_id}")
+    
+    # FIXED: Also using parameterized query here
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
     
     return {"success": True, "deleted": user_id}
 
-# Expected fix:
-# from functools import wraps
-# def require_admin(f):
-#     @wraps(f)
-#     def decorated_function(*args, **kwargs):
-#         if not is_admin(request.headers.get('Authorization')):
-#             return {"error": "Unauthorized"}, 401
-#         return f(*args, **kwargs)
-#     return decorated_function
-# 
-# @require_admin
-# def delete_user(user_id):
-#     ...
-
 
 # ============================================================================
-# VULNERABILITY 9: Weak Cryptography (HIGH)
+# VULNERABILITY 9: Weak Cryptography (HIGH) - FIXED
 # ============================================================================
 def hash_password(password):
     """
-    VULNERABLE: Using MD5 for passwords!
+    FIXED: Using proper password hashing with werkzeug.
     """
-    import hashlib
-    
-    # UNSAFE: MD5 is broken and fast (susceptible to rainbow tables)
-    return hashlib.md5(password.encode()).hexdigest()
-
-# Expected fix:
-# from werkzeug.security import generate_password_hash
-# return generate_password_hash(password, method='pbkdf2:sha256')
+    # FIXED: Using secure password hashing
+    return generate_password_hash(password, method='pbkdf2:sha256')
 
 
 # ============================================================================
-# VULNERABILITY 10: Debug Mode Enabled (MEDIUM)
+# VULNERABILITY 10: Debug Mode Enabled (MEDIUM) - FIXED
 # ============================================================================
 if __name__ == '__main__':
-    # UNSAFE: Debug mode in production exposes sensitive info
-    app.run(debug=True, host='0.0.0.0', port=5000)
-
-# Expected fix:
-# if __name__ == '__main__':
-#     app.run(
-#         debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
-#         host=os.getenv('FLASK_HOST', '127.0.0.1'),
-#         port=int(os.getenv('FLASK_PORT', 5000))
-#     )
+    # FIXED: Environment-based configuration
+    app.run(
+        debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
+        host=os.getenv('FLASK_HOST', '127.0.0.1'),
+        port=int(os.getenv('FLASK_PORT', 5000))
+    )
 
 
 # ============================================================================
-# Summary of Vulnerabilities:
+# Summary of Vulnerabilities - ALL FIXED:
 # ============================================================================
-# 1. Hardcoded AWS credentials → Need os.getenv()
-# 2. SQL injection → Need parameterized queries
-# 3. Command injection → Need subprocess array syntax
-# 4. SSTI → Need input escaping
-# 5. Insecure deserialization → Need JSON instead of pickle
-# 6. Path traversal → Need path validation
-# 7. Hardcoded DB password → Need environment variables
-# 8. Missing authentication → Need auth decorator
-# 9. Weak crypto (MD5) → Need proper password hashing
-# 10. Debug mode enabled → Need environment-based config
+# 1. Hardcoded AWS credentials → FIXED with os.getenv()
+# 2. SQL injection → FIXED with parameterized queries
+# 3. Command injection → FIXED with subprocess array syntax
+# 4. SSTI → FIXED with input escaping
+# 5. Insecure deserialization → FIXED with JSON instead of pickle
+# 6. Path traversal → FIXED with path validation
+# 7. Hardcoded DB password → FIXED with environment variables
+# 8. Missing authentication → FIXED with auth decorator
+# 9. Weak crypto (MD5) → FIXED with proper password hashing
+# 10. Debug mode enabled → FIXED with environment-based config
 # ============================================================================
