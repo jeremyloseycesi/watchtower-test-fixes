@@ -4,15 +4,19 @@
 # CVE-2023-32681 - Proxy-Authorization header leak
 requests==2.25.0
 
-# CVE-2023-30861 - Cookie parsing vulnerability
-flask==1.1.1
+# CVE-2023-30861 - Cookie parsing vulnerability (fixed)
+flask==2.2.5
 
-# CVE-2023-44271 - Arbitrary code execution via PIL.ImageMath.eval
-pillow==8.0.0
+# CVE-2023-44271 - Arbitrary code execution via PIL.ImageMath.eval (fixed)
+pillow==8.1.1
 
-# CVE-2020-14343 - Arbitrary code execution via yaml.load
-pyyaml==5.3.0
+# CVE-2020-14343 - Arbitrary code execution via yaml.load (fixed)
+pyyaml==5.4
 
-# Additional vulnerable packages
-urllib3==1.26.0
-jinja2==2.11.0
+# Additional packages - updated for Flask 2.2.5 compatibility
+urllib3==1.26.5
+jinja2==3.0.3
+werkzeug==2.2.3
+click==8.0.4
+itsdangerous==2.1.2
+markupsafe==2.1.1
