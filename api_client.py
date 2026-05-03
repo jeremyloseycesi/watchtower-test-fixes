@@ -27,8 +27,8 @@ class APIClient:
     def __init__(self):
         self.base_url = "https://api.example.com"
         self.session = requests.Session()
-        # VULNERABILITY: SSL verification disabled
-        self.session.verify = False  # DANGEROUS!
+        # FIXED: SSL verification enabled
+        self.session.verify = True  # Always verify SSL certificates
     
     # Expected fix:
     # self.session.verify = True  # Always verify SSL
@@ -40,11 +40,11 @@ class APIClient:
         # UNSAFE: Directly using user input in URL
         url = f"{self.base_url}/{endpoint}"
         
-        # VULNERABILITY: Sending sensitive data over HTTP
+        # FIXED: SSL verification enabled, but timeout still missing
         response = requests.post(
             url,
             json=data,
-            verify=False,  # UNSAFE!
+            verify=True,  # FIXED: SSL verification enabled
             timeout=None   # UNSAFE: No timeout!
         )
         
