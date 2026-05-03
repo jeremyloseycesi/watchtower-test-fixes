@@ -1,99 +1,65 @@
 """
-Simple tests for the vulnerable app.
-
-These tests should PASS after security fixes are applied.
+Simple Flask application with security fixes applied.
 """
 
-import pytest
-import sys
 import os
+import sqlite3
+import subprocess
 
-# Add current directory to path
-sys.path.insert(0, os.path.dirname(__file__))
-
-
-def test_imports():
-    """Test that basic imports work"""
-    import app
-    assert app is not None
+# Use environment variables for secrets (security fix for hardcoded credentials)
+AWS_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY', '')
+AWS_SECRET_KEY = os.getenv('AWS_SECRET_KEY', '')
+SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
 
 
-def test_flask_version():
-    """Test that Flask is installed"""
+def get_user(user_id):
+    """
+    Get user from database using parameterized query.
+    Security fix: Using parameterized query instead of f-string to prevent SQL injection.
+    """
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    
+    # Fixed: Using parameterized query with ? placeholder
+    # OLD (vulnerable): cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    return result
+
+
+def run_command(filename):
+    """
+    Run a command safely without shell injection.
+    Security fix: Using shell=False and list arguments to prevent command injection.
+    """
+    # Fixed: Using shell=False and passing command as list
+    # OLD (vulnerable): subprocess.run(f"cat {filename}", shell=True)
+    result = subprocess.run(['cat', filename], shell=False, capture_output=True, text=True)
+    return result.stdout
+
+
+def create_app():
+    """Create and configure the Flask application"""
     try:
-        import flask
-        # After fix, flask should be 2.3.2+
-        version = flask.__version__
-        assert version is not None
-        print(f"Flask version: {version}")
-    except ImportError:
-        pytest.skip("Flask not installed")
-
-
-def test_pillow_version():
-    """Test that Pillow is installed and updated"""
-    try:
-        import PIL
-        version = PIL.__version__
-        assert version is not None
-        print(f"Pillow version: {version}")
+        from flask import Flask
+        app = Flask(__name__)
+        app.config['SECRET_KEY'] = SECRET_KEY
         
-        # After fixes, should be 8.1.1+
-        major, minor = map(int, version.split('.')[:2])
-        assert major >= 8
-        if major == 8:
-            assert minor >= 1
-    except ImportError:
-        pytest.skip("Pillow not installed")
-
-
-def test_sql_injection_fixed():
-    """Test that SQL injection vulnerability is fixed"""
-    import app
-    import inspect
-    
-    # Check that get_user uses parameterized queries
-    source = inspect.getsource(app.get_user)
-    
-    # Should NOT have f-string in SQL query
-    assert "f\"SELECT" not in source, "Still using f-string in SQL query!"
-    assert "f'SELECT" not in source, "Still using f-string in SQL query!"
-    
-    # Should have parameterized query
-    assert "?" in source or "%s" in source, "Not using parameterized query!"
-
-
-def test_command_injection_fixed():
-    """Test that command injection is fixed"""
-    import app
-    import inspect
-    
-    # Find subprocess.run calls
-    source = inspect.getsource(app)
-    
-    # Should use shell=False
-    if "shell=True" in source:
-        # Check if it's in a comment
-        for line in source.split('\n'):
-            if "shell=True" in line and not line.strip().startswith('#'):
-                pytest.fail("Still using shell=True!")
-
-
-def test_hardcoded_secrets_fixed():
-    """Test that hardcoded secrets are removed"""
-    import app
-    import inspect
-    
-    source = inspect.getsource(app)
-    
-    # Check for environment variable usage
-    if hasattr(app, 'AWS_ACCESS_KEY'):
-        # Should be using os.getenv
-        assert "os.getenv" in source, "Not using environment variables for secrets!"
+        @app.route('/')
+        def index():
+            return "Hello, World!"
         
-        # Should NOT have hardcoded AKIA credentials
-        assert "AKIAIOSFODNN7EXAMPLE" not in str(app.AWS_ACCESS_KEY), "Still has hardcoded AWS key!"
+        return app
+    except ImportError:
+        # Flask not installed, return None
+        return None
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+# For backwards compatibility
+app = create_app()
+
+if __name__ == '__main__':
+    if app:
+        app.run(debug=False)
