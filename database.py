@@ -7,10 +7,11 @@ Database utilities with security vulnerabilities.
 import sqlite3
 import os
 
-# VULNERABILITY: Hardcoded database credentials
-DATABASE_URL = "postgresql://admin:P@ssw0rd123@prod-db.company.com:5432/users_prod"
-API_KEY = "fake_api_key_12345_this_is_not_real"
-JWT_SECRET = "my-super-secret-jwt-key-do-not-share"
+# FIXED: Load sensitive credentials from environment variables
+# Provide defaults for testing/demo purposes (not for production!)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///app.db")
+API_KEY = os.getenv("API_KEY", "test-api-key-12345")
+JWT_SECRET = os.getenv("JWT_SECRET", "test-jwt-secret-key")
 
 # Expected fix:
 # DATABASE_URL = os.getenv("DATABASE_URL")
